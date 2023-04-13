@@ -23,9 +23,8 @@ public class LessonsOfDay extends Thread {
 
     @Override
     public void run() {
-
-
         final OkHttpClient client = new OkHttpClient();
+
         Request request = new Request.Builder()
                 .addHeader("x-access-token", Token.getAccessToken())
                 .url("https://api.moyklass.com/v1/company/lessons?" + "date=2023-04-30" + "&includeRecords=true")
@@ -72,7 +71,7 @@ public class LessonsOfDay extends Thread {
                     usersNumbers.numbers.forEach((k, v) ->
                         System.out.println("Number: " + k + " Time: " + v));
                     try {
-                        SmsManager.getDefault().sendTextMessage("79779482492",null, "sms", null,null);
+                        SmsManager.getDefault().sendTextMessage("000000",null, "sms", null,null);
                         System.out.println(SmsManager.STATUS_ON_ICC_SENT);
 
                     }catch (Exception e) {
