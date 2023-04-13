@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Sms</string>
+    <string name="sms_tool">SMS_Tool</string>
+    <string name="message">Введите Token</string>
+    <string name="number">Введите Token</string>
+    <string name="Button">Сломать всё нахрен</string>
+</resources>
