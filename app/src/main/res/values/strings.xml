@@ -4,4 +4,10 @@
     <string name="message">Введите Token</string>
     <string name="number">Введите Token</string>
     <string name="Button">Сломать всё нахрен</string>
+    <string name="Numbers">Номера</string>
+    <string name="save">Save</string>
+    <string name="button">Button</string>
+    <string name="sent">sent</string>
+    <string name="textview">TextView</string>
+    <string name="Switch">Switch</string>
 </resources>

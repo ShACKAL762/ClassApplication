@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 
 import java.util.ArrayList;
 
-public class Lesson {
+public class LessonJson {
     /*
     **Fields of Json{
     *
@@ -35,21 +35,5 @@ public class Lesson {
     public int classId;
     public ArrayList<JsonElement> records;
 
-    @Override
-   public String toString(){
-        String nameOfLesson;
-        if (classId == 145802)
-            nameOfLesson = "*Творческий день*";
-        else
-        if (classId == 146001 || classId == 146004)
-            nameOfLesson = "*Лепка*";
-        else nameOfLesson = "*Гончарный круг*";
-        return (nameOfLesson + "\n");
-        /*
-                + new DateFormat(dateString, DateFormatState.FOR_USER).getDate() + "\n"
-                + this.beginTime + "   Записано : " + this.records.size() + "/" + this.maxStudents);
-
-         */
-   }
 }
 

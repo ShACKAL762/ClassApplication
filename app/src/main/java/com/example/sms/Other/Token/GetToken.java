@@ -1,7 +1,6 @@
-package com.example.sms.Other;
+package com.example.sms.Other.Token;
 
 
-import com.example.sms.Other.JSONS.Token;
 import com.squareup.okhttp.MediaType;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
@@ -12,7 +11,6 @@ import java.io.IOException;
 
 public class GetToken extends Thread{
     public String json;
-    private final String url = "https://api.moyklass.com/v1/company/auth/getToken";
     public static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
 
@@ -21,27 +19,35 @@ public class GetToken extends Thread{
     }
     @Override
     public void run() {
-        try {
-            token(json);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+
+           Token.setAccessToken(token(json));
+
     }
-    private void token(String json) throws IOException {
+    public String token(String json) {
+        Response response;
+        String url;
+        String res;
             final OkHttpClient client = new OkHttpClient();
             RequestBody body = RequestBody.create(JSON, json);
-            Request request = new Request.Builder()
+         url = "https://api.moyklass.com/v1/company/auth/getToken";
+        Request request = new Request.Builder()
                     .url(url)
                     .post(body)
                     .build();
 
-            Response response = client.newCall(request).execute();
-            String res = response.body().string();
+        try {
+            response = client.newCall(request).execute();
+            res = response.body().string();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
             String[] array = res.split("\"");
-            Token.setAccessToken(array[3]);
-        System.out.println(Token.getAccessToken());
-                }
+
+        if (array[3].length()>0)
+            return array[3];
+        else
+                return "null";}
 }
 
 

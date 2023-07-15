@@ -1,14 +1,11 @@
-package com.example.sms.Other.JSONS;
+package com.example.sms.Other.Token;
 
 import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
 
 public class  Token {
     private static String accessToken;
     public static PendingIntent pendingIntent;
-    public static Context context;
-    public static Intent intent;
+    public static PendingIntent pendingGood;
 
     public  static String getAccessToken() {
         return accessToken;
