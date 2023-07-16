@@ -2,19 +2,17 @@ package com.example.sms;
 
 
 import android.app.Activity;
-import android.app.ActivityManager;
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.View;
@@ -28,15 +26,18 @@ import androidx.core.app.NotificationCompat;
 
 import com.example.sms.Other.MyIntentService;
 import com.example.sms.Other.Notification.Channels;
-import com.example.sms.Other.SmsSendService;
+import com.example.sms.Sevices.AlarmService;
+import com.example.sms.Sevices.SmsSendService;
 
-import java.util.List;
+import java.util.Random;
 
 
 public class MainActivity extends AppCompatActivity {
     BroadcastReceiver sentReceiver = null;
     BroadcastReceiver deliveryReceiver = null;
+    BroadcastReceiver testReceiver = null;
     Context context = this;
+
 
 
     @Override
@@ -46,7 +47,14 @@ public class MainActivity extends AppCompatActivity {
         load();
         receivers();
         new Channels(this);
+
+
+
+
+
+
     }
+
     public void receivers(){
         if(sentReceiver == null){
             IntentFilter sIntentFilter = new IntentFilter("SentIntent");
@@ -56,12 +64,12 @@ public class MainActivity extends AppCompatActivity {
                     TextView textView = findViewById(R.id.Numbers);
 
                     if(getResultCode() == Activity.RESULT_OK){
-                        String text = intent.getStringExtra("NumberOfUser") + " " + "...";
+                        String text = intent.getStringExtra("number") + " " + "...";
                         textView.setText(text);
                         //textView.append(intent.getStringExtra("NumberOfUser") + " " + "в процессе...");
                         //TODO Create HashMap with users/status and update textView
                     }else
-                        textView.append(intent.getStringExtra("NumberOfUser") + " " + " error ");
+                        textView.append(intent.getStringExtra("number") + " " + " error ");
 
 
                 }
@@ -79,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
 
                     TextView textView = findViewById(R.id.Numbers);
                     String lines = String.valueOf(textView.getText());
-                    String line = intent.getStringExtra("NumberOfUser") + " " + " OK ";
+                    String line = intent.getStringExtra("number") + " " + " OK ";
                     textView.setText(line);
                     //TODO Create HashMap with users/status and update textView
 
@@ -87,6 +95,31 @@ public class MainActivity extends AppCompatActivity {
             };
             registerReceiver(deliveryReceiver,dIntentFilter);
         }
+        //TODO remove down
+        if(testReceiver == null){
+            IntentFilter TestFilter = new IntentFilter("Alarm");
+            testReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                   Log.e("TestReceiver","Input");
+                    NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "Notify");
+                    builder.setSmallIcon(R.drawable.ic_launcher_foreground);
+                    builder.setContentText("Text");
+                    builder.setContentTitle("Заголовок");
+                    Notification notify = builder.build();
+
+                    NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                    notificationManager.notify(1,notify);
+
+
+                    Log.e("TestReceiver","end");
+
+
+                }
+            };
+            registerReceiver(testReceiver,TestFilter);
+        }
+        //TODO remove up
         Toast.makeText(this,"Готово к работе", Toast.LENGTH_SHORT).show();
     }
     public void SaveToken(View v){
@@ -164,25 +197,25 @@ public class MainActivity extends AppCompatActivity {
 
     }
     public void Switcher(View v) {
+        AlarmManager alarmManager = getSystemService(AlarmManager.class);
         SwitchCompat c = findViewById(R.id.switcher);
+        Random r = new Random();
+        Intent intent = new Intent("Alarm");
+        Intent counter = new Intent(context,SmsSendService.class).putExtra("number","89779482492").putExtra("date","12.07.09").putExtra("time","12.15");
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this,r.nextInt(),intent,PendingIntent.FLAG_MUTABLE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ServiceConnection serviceConnection = new ServiceConnection() {
-                @Override
-                public void onServiceConnected(ComponentName name, IBinder service) {
-                    Log.e("Bind", "Connection");
-                }
 
-                @Override
-                public void onServiceDisconnected(ComponentName name) {
-                    Log.e("Bind", "DisConnection");
-                }
-            };
-            Intent counter = new Intent(this,SmsSendService.class);
-            if (c.isChecked()) {
-                startService(counter);
-                //startForegroundService(counter.putExtra("Turn", false).putExtra("count", "counter"));
+              if (c.isChecked()) {
+                  startService(new Intent(this, AlarmService.class));
+
+
+                  //startForegroundService(counter.putExtra("Turn", false).putExtra("count", "counter"));
             } else{
-                stopService(counter);
+                  Toast.makeText(this, "Рассылка выключена", Toast.LENGTH_SHORT).show();
+                  Log.e("Service", "Stop");
+
+                  alarmManager.cancel(pendingIntent);
+                stopService(new Intent(this,SmsSendService.class));
 
             }
 
@@ -194,18 +227,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void button(View v) {
-        ActivityManager activityManager = (ActivityManager)getSystemService(ACTIVITY_SERVICE);
-        int maxNum = 100;
-        List<ActivityManager.RunningServiceInfo> list = activityManager.getRunningServices(maxNum);
+        AlarmManager alarmManager = getSystemService(AlarmManager.class);
 
-        StringBuilder info = new StringBuilder();
 
-        info.append("Services currently running: ").append(list.size()).append("\n\n");
-        for(int i=0; i<list.size(); i++){
-            info.append(list.get(i).service).append("\n\n");
-        }
-
-        System.out.println(info);
 
         //stopService(new Intent(this,SmsSendService.class));
         /*Button button = findViewById(R.id.Button);

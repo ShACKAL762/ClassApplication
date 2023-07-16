@@ -24,10 +24,11 @@
             android:exported="false"
             />
         <service
-            android:name=".Other.SmsSendService"
+            android:name=".Sevices.SmsSendService"
             android:stopWithTask="true"
             android:enabled="true"
             />
+
 
 
         <activity
