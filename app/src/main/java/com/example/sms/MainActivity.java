@@ -1,6 +1,8 @@
 package com.example.sms;
 
 
+import static android.Manifest.permission.POST_NOTIFICATIONS;
+
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.Notification;
@@ -20,8 +22,10 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
 import com.example.sms.Other.MyIntentService;
@@ -29,6 +33,8 @@ import com.example.sms.Other.Notification.Channels;
 import com.example.sms.Sevices.AlarmService;
 import com.example.sms.Sevices.SmsSendService;
 
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.Random;
 
 
@@ -36,6 +42,9 @@ public class MainActivity extends AppCompatActivity {
     BroadcastReceiver sentReceiver = null;
     BroadcastReceiver deliveryReceiver = null;
     BroadcastReceiver testReceiver = null;
+    BroadcastReceiver testReceiver2 = null;
+    int count = 0;
+    Calendar cal = new GregorianCalendar();
     Context context = this;
 
 
@@ -46,6 +55,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         load();
         receivers();
+
+
+
         new Channels(this);
 
 
@@ -104,8 +116,8 @@ public class MainActivity extends AppCompatActivity {
                    Log.e("TestReceiver","Input");
                     NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "Notify");
                     builder.setSmallIcon(R.drawable.ic_launcher_foreground);
-                    builder.setContentText("Text");
-                    builder.setContentTitle("Заголовок");
+                    builder.setContentText("30 минут");
+                    builder.setContentTitle("Прошло");
                     Notification notify = builder.build();
 
                     NotificationManager notificationManager = getSystemService(NotificationManager.class);
@@ -113,11 +125,42 @@ public class MainActivity extends AppCompatActivity {
 
 
                     Log.e("TestReceiver","end");
+                    startService( new Intent(context,AlarmService.class));
 
 
                 }
             };
             registerReceiver(testReceiver,TestFilter);
+        }
+        if(testReceiver2 == null){
+
+            cal.setTimeInMillis(System.currentTimeMillis());
+
+            IntentFilter TestFilter2 = new IntentFilter("Alarm2");
+            testReceiver2 = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    Log.e("TestReceiver","Input");
+                    NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "Notify");
+                    builder.setSmallIcon(R.drawable.ic_launcher_foreground);
+                    builder.setContentText("Time: " + cal.get(Calendar.HOUR_OF_DAY) + ":" + cal.get(Calendar.MINUTE));
+                    builder.setContentTitle("Прошло");
+                    builder.setGroup("First").setGroupSummary(true);
+                    Notification notify = builder.build();
+
+                    NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                    notificationManager.notify(++count,notify);
+
+
+                    Log.e("TestReceiver","end");
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService( new Intent(context,AlarmService.class));
+                    }
+
+
+                }
+            };
+            registerReceiver(testReceiver2,TestFilter2);
         }
         //TODO remove up
         Toast.makeText(this,"Готово к работе", Toast.LENGTH_SHORT).show();
@@ -149,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
         Notification notification = builder.build();
         NotificationManager notificationManager =
                 getSystemService(NotificationManager.class);
-        notificationManager.notify(1, notification);
+        notificationManager.notify(2, notification);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(new Intent(this, MyIntentService.class).putExtra("count", "counter"));
@@ -196,6 +239,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     }
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void Switcher(View v) {
         AlarmManager alarmManager = getSystemService(AlarmManager.class);
         SwitchCompat c = findViewById(R.id.switcher);
@@ -206,16 +250,21 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 
               if (c.isChecked()) {
-                  startService(new Intent(this, AlarmService.class));
+                  ActivityCompat.requestPermissions(this, new String[] {POST_NOTIFICATIONS},108);
+                  receivers();
+                  startForegroundService(new Intent(this, AlarmService.class));
 
 
-                  //startForegroundService(counter.putExtra("Turn", false).putExtra("count", "counter"));
+
             } else{
                   Toast.makeText(this, "Рассылка выключена", Toast.LENGTH_SHORT).show();
                   Log.e("Service", "Stop");
-
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                      alarmManager.canScheduleExactAlarms();
+                  }
                   alarmManager.cancel(pendingIntent);
-                stopService(new Intent(this,SmsSendService.class));
+                  unregisterReceiver(testReceiver);
+                  stopService(new Intent(this,SmsSendService.class));
 
             }
 
