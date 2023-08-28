@@ -1,10 +1,11 @@
 package com.example.sms;
 
 
-import static android.Manifest.permission.POST_NOTIFICATIONS;
+import static android.Manifest.permission.SEND_SMS;
 
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.Dialog;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -15,38 +16,35 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
-import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.View;
+import android.view.Window;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
-import com.example.sms.Other.MyIntentService;
 import com.example.sms.Other.Notification.Channels;
-import com.example.sms.Sevices.AlarmService;
-import com.example.sms.Sevices.SmsSendService;
+import com.example.sms.Other.Token.GetToken;
+import com.example.sms.Other.Token.Token;
+import com.example.sms.Services.AlarmService;
+import com.example.sms.Services.SmsSendService;
 
-import java.util.Calendar;
-import java.util.GregorianCalendar;
 import java.util.Random;
 
 
 public class MainActivity extends AppCompatActivity {
-    BroadcastReceiver sentReceiver = null;
-    BroadcastReceiver deliveryReceiver = null;
-    BroadcastReceiver testReceiver = null;
-    BroadcastReceiver testReceiver2 = null;
-    int count = 0;
-    Calendar cal = new GregorianCalendar();
-    Context context = this;
+    private BroadcastReceiver sentReceiver = null;
+    private BroadcastReceiver deliveryReceiver = null;
+    private BroadcastReceiver alarmSmsReceiver = null;
+    final public Context context = this;
 
+    volatile boolean smsWorker;
 
 
     @Override
@@ -55,41 +53,43 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         load();
         receivers();
-
-
-
+        ActivityCompat.requestPermissions(
+                this,
+                new String[]{SEND_SMS, NOTIFICATION_SERVICE},
+                0);
         new Channels(this);
-
-
-
-
-
 
     }
 
-    public void receivers(){
-        if(sentReceiver == null){
-            IntentFilter sIntentFilter = new IntentFilter("SentIntent");
+
+    public void receivers() {
+        IntentFilter sIntentFilter = new IntentFilter("SentIntent");
+        IntentFilter dIntentFilter = new IntentFilter("DeliveryIntent");
+        if (sentReceiver == null) {
+
             sentReceiver = new BroadcastReceiver() {
+
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                    TextView textView = findViewById(R.id.Numbers);
 
-                    if(getResultCode() == Activity.RESULT_OK){
-                        String text = intent.getStringExtra("number") + " " + "...";
-                        textView.setText(text);
+                    TextView textView = findViewById(R.id.Numbers);
+                    if (getResultCode() == Activity.RESULT_OK) {
+
+                        String text = intent.getStringExtra("Number") + " " + "...\n";
+                        textView.append(text);
+
                         //textView.append(intent.getStringExtra("NumberOfUser") + " " + "в процессе...");
                         //TODO Create HashMap with users/status and update textView
-                    }else
-                        textView.append(intent.getStringExtra("number") + " " + " error ");
+                    } else
+                        textView.append(intent.getStringExtra("Number") + " " + " error \n");
 
 
                 }
             };
-            registerReceiver(sentReceiver,sIntentFilter);
+
         }
-        if(deliveryReceiver == null){
-            IntentFilter dIntentFilter = new IntentFilter("DeliveryIntent");
+        if (deliveryReceiver == null) {
+
             deliveryReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
@@ -99,73 +99,68 @@ public class MainActivity extends AppCompatActivity {
 
                     TextView textView = findViewById(R.id.Numbers);
                     String lines = String.valueOf(textView.getText());
-                    String line = intent.getStringExtra("number") + " " + " OK ";
-                    textView.setText(line);
+                    String line = intent.getStringExtra("Number") + " " + " OK \n";
+                    textView.append(line);
                     //TODO Create HashMap with users/status and update textView
 
                 }
             };
-            registerReceiver(deliveryReceiver,dIntentFilter);
         }
-        //TODO remove down
-        if(testReceiver == null){
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(sentReceiver, sIntentFilter, RECEIVER_NOT_EXPORTED);
+            registerReceiver(deliveryReceiver, dIntentFilter, RECEIVER_NOT_EXPORTED);
+        }
+
+
+        if (alarmSmsReceiver == null) {
             IntentFilter TestFilter = new IntentFilter("Alarm");
-            testReceiver = new BroadcastReceiver() {
+            alarmSmsReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                   Log.e("TestReceiver","Input");
-                    NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "Notify");
-                    builder.setSmallIcon(R.drawable.ic_launcher_foreground);
-                    builder.setContentText("30 минут");
-                    builder.setContentTitle("Прошло");
-                    Notification notify = builder.build();
 
-                    NotificationManager notificationManager = getSystemService(NotificationManager.class);
-                    notificationManager.notify(1,notify);
+                    Log.e("TestReceiver", "Input");
+                    if (smsWorker) {
+                        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "Notify");
+                        builder.setSmallIcon(R.drawable.ic_launcher_foreground);
+                        builder.setContentTitle("Смс");
+                        builder.setContentText("В процессе отправки");
+                        Notification notify = builder.build();
 
+                        NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                        notificationManager.notify(202, notify);
+                        //TODO sms
+                        EditText token = findViewById(R.id.Token);
+                        Log.e("c", token.getText().toString());
+                        Thread tokener = new GetToken("{\"apiKey\":\"" + token.getText().toString() + "\"}");
 
-                    Log.e("TestReceiver","end");
-                    startService( new Intent(context,AlarmService.class));
+                        tokener.start();
+                        ThreadJoiner(tokener);
 
-
-                }
-            };
-            registerReceiver(testReceiver,TestFilter);
-        }
-        if(testReceiver2 == null){
-
-            cal.setTimeInMillis(System.currentTimeMillis());
-
-            IntentFilter TestFilter2 = new IntentFilter("Alarm2");
-            testReceiver2 = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    Log.e("TestReceiver","Input");
-                    NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "Notify");
-                    builder.setSmallIcon(R.drawable.ic_launcher_foreground);
-                    builder.setContentText("Time: " + cal.get(Calendar.HOUR_OF_DAY) + ":" + cal.get(Calendar.MINUTE));
-                    builder.setContentTitle("Прошло");
-                    builder.setGroup("First").setGroupSummary(true);
-                    Notification notify = builder.build();
-
-                    NotificationManager notificationManager = getSystemService(NotificationManager.class);
-                    notificationManager.notify(++count,notify);
+                        Log.d("Token ", Token.getAccessToken());
 
 
-                    Log.e("TestReceiver","end");
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService( new Intent(context,AlarmService.class));
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(new Intent(context, SmsSendService.class));
+                            startForegroundService(new Intent(context, AlarmService.class));
+                        }
                     }
 
 
+                    Log.e("TestReceiver", "end");
+
+
                 }
             };
-            registerReceiver(testReceiver2,TestFilter2);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(alarmSmsReceiver, TestFilter, RECEIVER_NOT_EXPORTED);
+            }
         }
-        //TODO remove up
-        Toast.makeText(this,"Готово к работе", Toast.LENGTH_SHORT).show();
+
+        Toast.makeText(this, "Готово к работе", Toast.LENGTH_SHORT).show();
     }
-    public void SaveToken(View v){
+
+    public void SaveToken(View v) {
 
         EditText editText = findViewById(R.id.Token);
         SharedPreferences sPref = getPreferences(MODE_PRIVATE);
@@ -176,287 +171,99 @@ public class MainActivity extends AppCompatActivity {
 
         Toast.makeText(this, "Token - сохранен!", Toast.LENGTH_SHORT).show();
     }
-    public void load(){
+
+    public void load() {
         EditText editText = findViewById(R.id.Token);
-        editText.setText(getPreferences(MODE_PRIVATE).getString("Saved_Token",""));
+        editText.setText(getPreferences(MODE_PRIVATE).getString("Saved_Token", ""));
     }
-    public void Sent(View v){
-        String id = "Notify";
 
-        NotificationCompat.Builder builder =
-                new NotificationCompat.Builder(this, id)
-                        .setSmallIcon(R.mipmap.ic_launcher)
-                        .setContentTitle("Title")
-                        .setContentText("Notification text");
-
-        Notification notification = builder.build();
-        NotificationManager notificationManager =
-                getSystemService(NotificationManager.class);
-        notificationManager.notify(2, notification);
-
+    public void Sent(View v) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(new Intent(this, MyIntentService.class).putExtra("count", "counter"));
+            startForegroundService(new Intent(context, SmsSendService.class).putExtra("Send", true));
+
+
+            Thread thread = new Thread(() -> {
+
+                try {
+                    Log.e("odm", "bom");
+
+
+                    startForegroundService(new Intent(context, SmsSendService.class).putExtra("Number", 5));
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
+            });
+
+            thread.start();
         }
 
-        Log.e("IntentService", "start");
-        Runnable r = new Runnable() {
-            @Override
-            public void run() {
-
-                for(int i = 1000; i > 0; i--) {
-                    try {
-                        Thread.sleep(1000);
-                        System.out.println(i);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-                getSystemService(SmsManager.class).sendTextMessage(
-                        "89779482492",
-                        null,
-                        "test",
-                        null,
-                        null);
-
-            }
-        };
-        Thread thread = new Thread(r);
-        //thread.start();
-
-
-
-
-
-       /* EditText token = findViewById(R.id.Token);
-        GetToken tok = new GetToken("{\"apiKey\":\"" + token.getText().toString() + "\"}");
-        tok.start();
-        ThreadJoiner(tok);
-        new SendSmsToTomorrowStudents(this).start();*/
-
-
-
-
-
-
     }
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+
     public void Switcher(View v) {
         AlarmManager alarmManager = getSystemService(AlarmManager.class);
-        SwitchCompat c = findViewById(R.id.switcher);
+        SwitchCompat switchStatus = findViewById(R.id.switcher);
         Random r = new Random();
         Intent intent = new Intent("Alarm");
-        Intent counter = new Intent(context,SmsSendService.class).putExtra("number","89779482492").putExtra("date","12.07.09").putExtra("time","12.15");
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(this,r.nextInt(),intent,PendingIntent.FLAG_MUTABLE);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, r.nextInt(), intent, PendingIntent.FLAG_MUTABLE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 
-              if (c.isChecked()) {
-                  ActivityCompat.requestPermissions(this, new String[] {POST_NOTIFICATIONS},108);
-                  receivers();
-                  startForegroundService(new Intent(this, AlarmService.class));
+            if (switchStatus.isChecked()) {
+                startForegroundService(new Intent(this, AlarmService.class));
+                smsWorker = true;
 
 
-
-            } else{
-                  Toast.makeText(this, "Рассылка выключена", Toast.LENGTH_SHORT).show();
-                  Log.e("Service", "Stop");
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                      alarmManager.canScheduleExactAlarms();
-                  }
-                  alarmManager.cancel(pendingIntent);
-                  unregisterReceiver(testReceiver);
-                  stopService(new Intent(this,SmsSendService.class));
-
+            } else {
+                Toast.makeText(this, "Рассылка выключена", Toast.LENGTH_SHORT).show();
+                Log.e("Service", "Stop");
+                smsWorker = false;
+                alarmManager.cancel(pendingIntent);
+                stopService(new Intent(this, SmsSendService.class));
+                stopService(new Intent(this, AlarmService.class));
             }
 
-
-
-                //stopService(new Intent(this, SmsSendService.class));
-                //stopService(counter);
         }
     }
 
-    public void button(View v) {
-        AlarmManager alarmManager = getSystemService(AlarmManager.class);
+    public void option(View view) {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setCancelable(true);
+        dialog.setContentView(R.layout.dialog);
+        EditText editText = dialog.findViewById(R.id.smsMassage);
+        editText.setText(getPreferences(MODE_PRIVATE).getString("Saved_Massage", ""));
+
+        Button saveButton = dialog.findViewById(R.id.saveMassage);
+        saveButton.setOnClickListener(v -> {
+
+                        SharedPreferences sPref = getSharedPreferences("main" ,Context.MODE_PRIVATE);
+                        SharedPreferences.Editor ed = sPref.edit();
+
+                        ed.putString("Saved_Massage", editText.getText().toString());
+                        ed.apply();
+
+                        Toast.makeText(context, "Сообщение - сохранено!", Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+
+                    });
 
 
 
-        //stopService(new Intent(this,SmsSendService.class));
-        /*Button button = findViewById(R.id.Button);
-        button.setEnabled(false);
-        button.setText("Нажата");
-        EditText token = findViewById(R.id.Token);
-        TextView numbers = findViewById(R.id.Numbers);
-
-        numbers.setText("Загрузка!");
-        GetToken tok = new GetToken("{\"apiKey\":\"" + token.getText().toString() + "\"}");
-        tok.start();
-        ThreadJoiner(tok);
-
-
-
-*/
-
-
+       dialog.show();
     }
+    /*public void saveMessage(View view){
+        EditText editText = findViewById(R.id.smsMassage);
+        SharedPreferences sPref = getPreferences(MODE_PRIVATE);
+        SharedPreferences.Editor ed = sPref.edit();
 
+        ed.putString("Saved_Massage", editText.getText().toString());
+        ed.apply();
 
-    /*public void Sent(View v){
-
-        IntentFilter fSent = new IntentFilter("Sent");
-        IntentFilter fUnSent = new IntentFilter("UnSent");
-
-        Intent sentIntent = new Intent("Sent");
-        Intent unSentIntent = new Intent("UnSent");
-
-
-        textView = findViewById(R.id.Numbers);
-        System.out.println(textView.getText());
-        textView.setText(null);
-
-        ArrayList<String>list;
-        list = new ArrayList<>();
-        ArrayList<String> List = list;
-        System.out.println("List in this point = " + List);
-        System.out.println("textView after " + textView.getText());
-
-        System.out.println("textView after all " + textView.getText());
-
-
-        BroadcastReceiver receiver;
-        if (!receiverOn) {
-            System.out.println("new receiver");
-            receiverOn= true;
-
-
-            receiver = new BroadcastReceiver() {
-
-
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    System.out.println("pip");
-                    System.out.println(intent.getExtras().size());
-                    if(intent.getBooleanExtra("1",false))
-                        List.clear();
-                    List.add(intent.getStringExtra("5") + " +\n");
-                    System.out.println(List);
-                    TextView text;
-                    System.out.println(intent.getExtras());
-                    text = textView;
-
-                    text.append(intent.getStringExtra("5") + " +\n");
-
-                    //System.out.println(appender);
-
-
-                    //System.out.println(intent.getStringExtra(consta));
-                    System.out.println("Сообщение");
-
-
-                }
-            };
-            ;
-            BroadcastReceiver receiver2 = new BroadcastReceiver() {
-
-                @Override
-                public void onReceive(Context context, Intent intent) {
-
-
-                    textView.append(intent.getStringExtra("5") + " delivered +\n");
-
-
-                    System.out.println("Сообщение2");
-
-                }
-            };
-            registerReceiver(receiver2, fUnSent);
-
-            registerReceiver(receiver, fSent);
-        }
-
-
-        //String num = "89165313653";
-        //sentIntent.putExtra(consta,num);
-        String[]numbers = new String[2];
-        numbers[0] = "89779482492";
-        numbers[1] = "89165313653";
-        //for (int i = 0; i < numbers.length; i++) {
-
-        //}
-
-        class myRun extends Thread{
-            final Context context;
-            Intent sIntent;
-            final Intent dIntent;
-
-            myRun(Context context, Intent ... intents){
-
-                this.sIntent = intents[0];
-                this.dIntent = intents[1];
-
-                this.context = context;
-
-            }
-
-            @Override
-            public void run() {
-                PendingIntent pSent;
-
-                ArrayList <String> strings = new ArrayList<>();
-                strings.add("test");
-                strings.add("test");
-                System.out.println(strings);
-
-                for (int i = 0; i < numbers.length; i++){
-                    try {
-                        Thread.sleep(3000);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                    sIntent = new Intent("Sent");
-                    sIntent.putExtra("5",numbers[i]);
-                    System.out.println("Pending to " + sIntent.getStringExtra("5"));
-                    Random random = new Random();
-
-                        getSystemService(Vibrator.class).vibrate(300);
-                    System.out.println(numbers.length);
-                        pSent = PendingIntent.getBroadcast(context,random.nextInt() , new Intent("Sent").putExtra("5",numbers[0]).putExtra("1", true), PendingIntent.FLAG_IMMUTABLE );
-
-                                getSystemService(SmsManager.class).sendTextMessage(
-                                        numbers[0],
-                                        null,
-                                        "test",
-                                        pSent,
-                                        PendingIntent.getBroadcast(context, random.nextInt(), new Intent("unSent").putExtra("5",numbers[0]), PendingIntent.FLAG_IMMUTABLE ));
-
-                    try {
-                        Thread.sleep(3000);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                    getSystemService(SmsManager.class).sendTextMessage(
-                            numbers[1],
-                            null,
-                            "test",
-                            PendingIntent.getBroadcast(context,random.nextInt() , new Intent("Sent").putExtra("5",numbers[1]).putExtra("1", true), PendingIntent.FLAG_IMMUTABLE ),
-                            PendingIntent.getBroadcast(context, random.nextInt(), new Intent("unSent").putExtra("5",numbers[1]), PendingIntent.FLAG_IMMUTABLE ));
-                    break;
-
-
-
-
-
-
-                }
-
-            }
-        }
-        myRun m = new myRun(this,sentIntent,unSentIntent);
-        m.start();
-        ThreadJoin(m);
-
-
+        Toast.makeText(this, "Сообщение - сохранено!", Toast.LENGTH_SHORT).show();
 
     }*/
+
 
     @Override
     protected void onPause() {
@@ -471,16 +278,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onDestroy()
-    {
-        if(sentReceiver != null)
+    protected void onDestroy() {
+        if (sentReceiver != null)
             unregisterReceiver(sentReceiver);
-        if(deliveryReceiver != null)
+        if (deliveryReceiver != null)
             unregisterReceiver(deliveryReceiver);
+        if (alarmSmsReceiver !=null)
+            unregisterReceiver(alarmSmsReceiver);
         super.onDestroy();
         System.out.println("OnDestroy");
     }
-    private void ThreadJoiner(Thread thread){
+
+    private void ThreadJoiner(Thread thread) {
         try {
             thread.join(3000);
         } catch (InterruptedException e) {
@@ -488,4 +297,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
+
+
 }

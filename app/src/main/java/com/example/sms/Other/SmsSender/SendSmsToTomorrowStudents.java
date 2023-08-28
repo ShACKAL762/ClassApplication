@@ -2,6 +2,7 @@ package com.example.sms.Other.SmsSender;
 
 
 import android.content.Context;
+import android.content.Intent;
 import android.telephony.SmsManager;
 import android.util.Log;
 
@@ -11,6 +12,7 @@ import com.example.sms.Other.JSONS.LessonsOfDayJson;
 import com.example.sms.Other.JSONS.UserData;
 import com.example.sms.Other.JSONS.UserJson;
 import com.example.sms.Other.Token.Token;
+import com.example.sms.Services.Sender;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.squareup.okhttp.OkHttpClient;
@@ -20,6 +22,8 @@ import com.squareup.okhttp.Response;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +53,12 @@ public class SendSmsToTomorrowStudents extends Thread {
             users = GetUsersPhonesFromLessons();
 
             users.forEach((k, v) -> {
-                //TODO Send sms to all users
+            context.startService(
+                    new Intent(context, Sender.class)
+                            .putExtra("Number", k )
+                            .putExtra("Date", v.date)
+                            .putExtra("Time", v.beginTime));
+
                 try {
                     Thread.sleep(150);
                 } catch (InterruptedException e) {
@@ -69,20 +78,7 @@ public class SendSmsToTomorrowStudents extends Thread {
         //SendSmsTest();
     }
 
-    private void SendSms(Map<String, UserData> users) {
-        Intents intents = new Intents(context);
 
-        users.forEach((k, v) ->{
-                System.out.println(k +  "Ждем вас "+ v.date +" в " + v.beginTime + " в Purple Cup.По адресу ул.Туристская 33к1.");
-
-        SmsManager.getDefault().sendTextMessage(
-                k,
-                null,
-                "Ждем вас "+ v.date +" в " + v.beginTime + " в Purple Cup. По адресу ул.Туристская 33к1.",
-                intents.getSent(),
-                intents.getDelivered());
-        });
-    }
 
 
 
@@ -90,6 +86,7 @@ public class SendSmsToTomorrowStudents extends Thread {
         ArrayList<JsonElement> lessons;
         lessons = GetLessons();
         if(lessons == null){
+            Log.e("SendSmsToTomorrowStudents","GetUsersPhonesFromLessons: lessonsList == null");
             throw  new IOException();
         }
         return GetUsersFromLessons(lessons);
@@ -99,18 +96,33 @@ public class SendSmsToTomorrowStudents extends Thread {
     private ArrayList<JsonElement> GetLessons() {
         LessonsOfDayJson lessonsOfDayJson;
         Calendar calendar = Calendar.getInstance();
+        System.out.println(calendar.getTime());
         calendar.add(Calendar.DAY_OF_MONTH,1);
-//TODO Date tomorrow in request
-        request = requestBuild("https://api.moyklass.com/v1/company/lessons?" + "date=2023-06-11" + "&includeRecords=true");
+
+        String day = String.valueOf(calendar.get(Calendar.DAY_OF_MONTH));
+        String month = String.valueOf(calendar.get(Calendar.MONTH)+1);
+        if(day.length() == 1)
+            day = 0+day;
+        if (month.length()==1)
+            month = 0+month;
+
+        String date = calendar.get(Calendar.YEAR) + "-" + month + "-" + day;
+        //todo date here
+        date = "2023-10-03";
+        Log.e("date" ,date);
+
+        request = requestBuild("https://api.moyklass.com/v1/company/lessons?" + "date=" + date + "&includeRecords=true");
         {
             try {
                 response = client.newCall(request).execute();
                 String result = response.body().string();
+                Log.d("res", result);
                 lessonsOfDayJson = gson.fromJson(result, LessonsOfDayJson.class);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
+        Log.d("LessonsList", "" + lessonsOfDayJson.lessons.size() + "(" + lessonsOfDayJson.lessons);
         if(lessonsOfDayJson.lessons != null)
             return lessonsOfDayJson.lessons;
         else return null;
@@ -124,10 +136,14 @@ public class SendSmsToTomorrowStudents extends Thread {
         String url;
         String result;
         Map<String, UserData> usersArray = new LinkedHashMap<>();
+        int count = 0;
 
-
+        Collections.reverse(lessons);
         for (JsonElement lesson : lessons) {
             lessonJson = gson.fromJson(lesson, LessonJson.class);
+            Log.d("les", lessonJson.date);
+            System.out.println(++count);
+
 
             if (!lessonJson.records.isEmpty()) {
                 for (JsonElement user : lessonJson.records) {

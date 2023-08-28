@@ -59,31 +59,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
 
-    <Button
-        android:id="@+id/Button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="356dp"
-        android:onClick="button"
-        android:text="@string/button"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.867"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <Button
-        android:id="@+id/Send"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="288dp"
-        android:onClick="Sent"
-        android:text="@string/sent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.851"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <TextView
+    <EditText
         android:id="@+id/Numbers"
         android:layout_width="256dp"
         android:layout_height="499dp"
@@ -91,27 +67,35 @@
         android:ems="10"
         android:gravity="start|top"
 
-        android:hint="@string/message"
+        android:hint="@string/NumberList"
         android:inputType="textMultiLine"
         android:textSize="15sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.931"
-        tools:text="+79779482492 true\n" />
+        app:layout_constraintVertical_bias="0.931" />
 
     <androidx.appcompat.widget.SwitchCompat
         android:id="@+id/switcher"
         android:layout_width="150dp"
         android:layout_height="74dp"
-        android:layout_marginTop="10dp"
-        android:layout_marginEnd="84dp"
-        android:text="@string/Switch"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="36dp"
         android:onClick="Switcher"
+        android:text="@string/Switch"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/Token" />
 
-
+    <Button
+        android:id="@+id/option"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:layout_marginEnd="5dp"
+        android:onClick="option"
+        android:text="Options"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,6 +1,8 @@
 package com.example.sms.Other.Token;
 
 
+import android.util.Log;
+
 import com.squareup.okhttp.MediaType;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
@@ -10,6 +12,7 @@ import com.squareup.okhttp.Response;
 import java.io.IOException;
 
 public class GetToken extends Thread{
+    static private long timer;
     public String json;
     public static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
@@ -19,8 +22,15 @@ public class GetToken extends Thread{
     }
     @Override
     public void run() {
-
-           Token.setAccessToken(token(json));
+            Log.e("System", ""+System.currentTimeMillis());
+            Log.e("System2", ""+ timer);
+        Log.e("log", System.currentTimeMillis() - timer + " : " + 60*1000);
+            if((System.currentTimeMillis() - timer) >= 60*1000) {
+                Log.e("log", System.currentTimeMillis() - timer + " : " + 60*1000);
+                Token.setAccessToken(token(json));
+                timer = System.currentTimeMillis();
+                Log.e("!!!!!","wtf");
+            }
 
     }
     public String token(String json) {
@@ -30,6 +40,7 @@ public class GetToken extends Thread{
             final OkHttpClient client = new OkHttpClient();
             RequestBody body = RequestBody.create(JSON, json);
          url = "https://api.moyklass.com/v1/company/auth/getToken";
+
         Request request = new Request.Builder()
                     .url(url)
                     .post(body)
@@ -41,8 +52,9 @@ public class GetToken extends Thread{
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
+        Log.e("Alarmer", "" + response.code());
             String[] array = res.split("\"");
+        Log.e("Alarmer", array[0]);
 
         if (array[3].length()>0)
             return array[3];
